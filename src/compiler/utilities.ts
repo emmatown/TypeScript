@@ -424,7 +424,6 @@ import {
     ParameterDeclaration,
     ParenthesizedExpression,
     ParenthesizedTypeNode,
-    parseConfigFileTextToJson,
     PartiallyEmittedExpression,
     Path,
     pathIsRelative,
@@ -7261,9 +7260,16 @@ export function base64decode(host: { base64decode?(input: string): string } | un
 export function readJsonOrUndefined(path: string, hostOrText: { readFile(fileName: string): string | undefined } | string): object | undefined {
     const jsonText = isString(hostOrText) ? hostOrText : hostOrText.readFile(path);
     if (!jsonText) return undefined;
-    // gracefully handle if readFile fails or returns not JSON
-    const result = parseConfigFileTextToJson(path, jsonText);
-    return !result.error ? result.config : undefined;
+    try {
+        const parsed = JSON.parse(jsonText);
+        // eslint-disable-next-line no-null/no-null
+        if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+            return parsed;
+        }
+    }
+    catch {
+        // gracefully handle if readFile fails or returns not JSON
+    }
 }
 
 /** @internal */
