@@ -44,6 +44,7 @@ import {
     flatten,
     forEachAncestorDirectory,
     getBaseFileName,
+    getConditions,
     getContextualTypeFromParent,
     getDirectoryPath,
     getEffectiveTypeRoots,
@@ -57,6 +58,7 @@ import {
     getPathsBasePath,
     getReplacementSpanForContextToken,
     getResolvePackageJsonExports,
+    getResolvePackageJsonImports,
     getSupportedExtensions,
     getSupportedExtensionsWithJsonIfResolveJsonModule,
     getTextOfJsxAttributeName,
@@ -876,6 +878,27 @@ function getCompletionEntriesForNonRelativeModules(
     }
 
     getCompletionEntriesFromTypings(host, compilerOptions, scriptPath, fragmentDirectory, extensionOptions, result);
+
+    if ((fragment === "" || startsWith(fragment, "#")) && getResolvePackageJsonImports(compilerOptions)) {
+        const packageJsonPath = findPackageJson(getDirectoryPath(scriptPath), host);
+        if (packageJsonPath) {
+            const packageJson = readJson(packageJsonPath, host as { readFile: (filename: string) => string | undefined });
+            const imports = (packageJson as any).imports;
+            if (imports) {
+                const keys = getOwnKeys(imports);
+                const conditions = getConditions(compilerOptions, mode === ModuleKind.ESNext);
+                addCompletionEntriesFromPathsOrExports(
+                    result,
+                    fragment,
+                    getDirectoryPath(packageJsonPath),
+                    extensionOptions,
+                    host,
+                    keys,
+                    key => singleElementArray(getPatternFromFirstMatchingCondition(imports[key], conditions)),
+                    comparePatternKeys);
+            }
+        }
+    }
 
     if (moduleResolutionUsesNodeModules(moduleResolution)) {
         // If looking for a global package name, don't just include everything in `node_modules` because that includes dependencies' own dependencies.
